@@ -1,36 +1,112 @@
 import random
 
 
+class Stack:
+    def __init__(self):
+        self._items = []
+
+    def push(self, item):
+        """Добавляет элемент на вершину стека"""
+        self._items.append(item)
+
+    def pop(self):
+        """Удаляет и возвращает элемент с вершины стека"""
+        if self.is_empty():
+            raise IndexError("Попытка извлечь из пустого стека")
+        return self._items.pop()
+
+    def is_empty(self):
+        """Проверяет, пуст ли стек"""
+        return len(self._items) == 0
+
+    def size(self):
+        """Возвращает количество элементов в стеке"""
+        return len(self._items)
+
+    def __str__(self):
+        """Строковое представление стека"""
+        return str(self._items)
+
+
 class Barge:
     def __init__(self, num_holds, max_barrels):
+        self._holds = [Stack() for _ in range(num_holds + 1)]  # Индексация отсеков с 1
+        self._current = 0  # Текущее количество бочек
+        self._max = 0  # Максимальное количество бочек
+        self._limit = max_barrels  # Лимит бочек
+        self._error = False  # Флаг ошибки
+        self._error_message = ""  # Сообщение об ошибки
 
     def _validate_hold(self, hold_num):
+        """Проверка номера отсека (приватный метод)"""
         if not 1 <= hold_num < len(self._holds):
             self._error = True
             self._error_message = f"ОШИБКА: Неверный номер отсека {hold_num}"
             return False
         return True
 
+    def _check_limit(self):
+        """Проверка лимита бочек (приватный метод)"""
         if self._current > self._limit:
             self._error = True
             self._error_message = f"ОШИБКА: Превышен лимит {self._limit} бочек"
+            raise ValueError(self._error_message)
+
+    def _update_max(self):
+        """Обновление максимального количества (приватный метод)"""
+        if self._current > self._max:
+            self._max = self._current
+
+    def add_barrel(self, hold_num, fuel_type):
+        """Добавление бочки в отсек (публичный метод)"""
+        if self._error:
             return False
 
+        if not self._validate_hold(hold_num):
+            return False
+
+        try:
+            self._holds[hold_num].push(fuel_type)
+            self._current += 1
+            self._update_max()
+            self._check_limit()
             return True
+        except Exception as e:
+            self._error = True
+            self._error_message = f"ОШИБКА: {str(e)}"
+            return False
 
     def remove_barrel(self, hold_num, expected_fuel):
-
+        """Извлечение бочки из отсека (публичный метод)"""
+        if self._error:
             return False
+
+        if not self._validate_hold(hold_num):
+            return False
+
+        try:
+            if self._holds[hold_num].is_empty():
+                raise ValueError(f"Отсек {hold_num} пуст")
 
             actual_fuel = self._holds[hold_num].pop()
             if actual_fuel != expected_fuel:
+                raise ValueError(f"Ожидалось {expected_fuel}, а получили {actual_fuel}")
 
             self._current -= 1
             return True
+        except Exception as e:
+            self._error = True
+            self._error_message = f"ОШИБКА: {str(e)}"
+            return False
 
     def is_empty(self):
+        """Проверка, пуста ли баржа (публичный метод)"""
+        if self._error:
+            return False
+        return all(hold.is_empty() for hold in self._holds[1:])
 
     def get_state(self):
+        """Возвращает строку с текущим состоянием (публичный метод)"""
         state = []
         for i, hold in enumerate(self._holds[1:], 1):
             state.append(f"Отсек {i}: {hold}")
@@ -40,6 +116,7 @@ class Barge:
         return "\n".join(state)
 
     def get_result(self):
+        """Финальный результат (публичный метод)"""
         if not self.is_empty() and not self._error:
             self._error = True
             self._error_message = "ОШИБКА: Баржа не пуста в конце"
@@ -75,6 +152,8 @@ def manual_input_operations(N, K):
     """Ручной ввод операций"""
     operations = []
     print("\nВводите операции в формате: [+/-] [номер_отсека] [тип_топлива]")
+    print("Пример: + 1 5000 - добавить бочку 5000 в отсек 1")
+    print("        - 2 3000 - извлечь бочку 3000 из отсека 2\n")
 
     for i in range(1, N + 1):
         while True:
@@ -95,42 +174,73 @@ def manual_input_operations(N, K):
                 if not 1 <= hold <= K:
                     print(f"Ошибка: номер отсека должен быть от 1 до {K}!")
                     continue
+                if fuel <= 0:
+                    print("Ошибка: тип топлива должен быть положительным числом!")
+                    continue
                 break
             except ValueError:
+                print("Ошибка: номер отсека и тип топлива должны быть целыми числами!")
 
         operations.append((op, hold, fuel))
     return operations
 
+
 def simulate():
+    """Основная функция симуляции"""
     while True:
         try:
+            K = int(input("Введите количество отсеков (K >= 1): "))
+            if K < 1:
+                print("Ошибка: количество отсеков должно быть не менее 1!")
+                continue
+
+            P = int(input("Введите лимит бочек (P >= 0 и P <= 100000): "))
+            if P < 0 or P > 100000:
+                print("Ошибка: лимит бочек должен быть от 0 до 100000!")
+                continue
+
+            N = int(input("Введите количество операций (N >= 1): "))
+            if N < 1:
+                print("Ошибка: количество операций должно быть не менее 1!")
                 continue
             break
         except ValueError:
             print("Ошибка: введите целые числа!")
 
+    # Выбор режима
     while True:
         mode = input("\nВыберите режим:\n1 - Автоматическая генерация операций\n2 - Ручной ввод операций\n> ").strip()
         if mode in ('1', '2'):
             break
         print("Ошибка: введите 1 или 2")
 
+    # Генерация операций
+    operations = generate_operations(N, K) if mode == '1' else manual_input_operations(N, K)
 
+    # Инициализация баржи
     barge = Barge(K, P)
     print("\nНачальное состояние:")
     print(barge.get_state())
 
+    # Обработка операций
+    for i, (op, hold, fuel) in enumerate(operations, 1):
+        print(f"\nШаг {i}: {'Добавление' if op == '+' else 'Извлечение'} в отсеке {hold} (топливо: {fuel})")
 
+        success = barge.add_barrel(hold, fuel) if op == '+' else barge.remove_barrel(hold, fuel)
         print(barge.get_state())
 
         if not success:
+            print(f"! Остановка: {barge._error_message}")
             break
 
+    # Финальная проверка
     if not barge._error and not barge.is_empty():
         barge._error = True
         barge._error_message = "ОШИБКА: Баржа не пуста в конце"
         print(f"\n! Обнаружена ошибка: {barge._error_message}")
 
+    # Результат
+    print("\n=== Результат работы ===")
     print(barge.get_result())
 
 
