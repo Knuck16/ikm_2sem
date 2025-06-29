@@ -19,10 +19,6 @@ class Stack:
         """Проверяет, пуст ли стек"""
         return len(self._items) == 0
 
-    def size(self):
-        """Возвращает количество элементов в стеке"""
-        return len(self._items)
-
     def __str__(self):
         """Строковое представление стека"""
         return str(self._items)
